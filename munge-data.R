@@ -58,7 +58,7 @@ reviewer.names <- albums %>%
   group_by(reviewer) %>%
   summarise(n = n())
 
-reviewer.names
+reviewer.names  # no duplicates?
 
 #-----  Dates  -------------------------
 
@@ -66,6 +66,9 @@ reviewer.names
 
 library(lubridate)  # ymd, format
 albums <- albums %>% 
-  mutate(year = format(ymd(published), format = "%Y"), 
-         month = format(ymd(published), format = "%m"))
+  mutate(published = ymd(published), 
+         year = format(published, format = "%Y"), 
+         month = format(published, format = "%m"))
 
+# restrict to years 2014 or earlier
+albums <- albums %>% filter(year <= 2014)
