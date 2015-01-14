@@ -16,7 +16,7 @@ BASE_URL = 'http://www.pitchfork.com'
 OPENER = urllib2.build_opener()
 OPENER.addheaders = [('User-agent', 'Mozilla/5.0')]  # perhaps disingenuous, but claims web scraper is a user-agent vs bot
 AVERAGE_SECONDS_BETWEEN_REQUESTS = 5  # that being said, be kind to pitchfork's servers
-START_AT_PAGE = 1  # album review page at which to begin scraping/parsing. May need to update this if program hangs and must be rerun.
+START_AT_PAGE = 1  # album review page at which to begin scraping/parsing. Update this if program hangs and must be rerun.
 DATABASE_NAME = 'pitchfork-reviews.db'  # must end in .db
 
 class Timeout(Exception):  # handles timeout errors (e.g., server request is taking too long)
@@ -34,7 +34,7 @@ def main():
 				print "Done parsing"
 				break
 			if html:
-				parse_page(sql, html)  # inserts 20 albums into db
+				parse_page(sql, html)  # inserts ~20 albums into db
 				con.commit()  # commit changes to db after page fully parsed
 				time.sleep(numpy.random.exponential(AVERAGE_SECONDS_BETWEEN_REQUESTS, 1))  # pause between server requests
 
