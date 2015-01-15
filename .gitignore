@@ -4,3 +4,6 @@
 *.Rproj
 
 *.html
+figs/*
+
+2015-01-14-pitchfork-reviews.md
