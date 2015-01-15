@@ -34,6 +34,6 @@ The `RSQLite` and `DBI` packages allow `R` to interact with `pitchfork-reviews.d
 Following execution of `load-data.R`, the `munge-data.R` file [munges](http://en.wikipedia.org/wiki/Data_wrangling) the raw data into a more usable form, including reviewer name corrections and helpful date information via `lubridate`.
 
 ## Data analysis
-Finally, `2014-01-14-pitchfork-reviews.Rmd` presents a fully reproducible data analysis of these Pitchfork album review data, making use of several helpful `R` packages including `dplyr`, `magrittr`, and `ggplot2`. Opening this file in `RStudio` and "knitting" the document with `knitr` produces an `html`, `pdf`, or `docx`. The following is a link to the analysis hosted on my webpage:
+Finally, `2015-01-14-pitchfork-reviews.Rmd` presents a fully reproducible data analysis of these Pitchfork album review data, making use of several helpful `R` packages including `dplyr`, `magrittr`, and `ggplot2`. Opening this file in `RStudio` and "knitting" the document with `knitr` produces an `html`, `pdf`, or `docx`. The following is a link to the analysis hosted on my webpage:
 
 [http://nsgrantham.github.io/pitchfork-reviews](https://nsgrantham.github.io/pitchfork-reviews)
