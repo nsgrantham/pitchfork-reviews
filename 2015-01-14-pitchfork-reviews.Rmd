@@ -1,0 +1,342 @@
+---
+title: "Who Reviews the Reviewers?"
+author: "Neal S. Grantham"
+date: "January 14, 2015"
+output: html_document
+---
+
+```{r global-options, include=FALSE}
+library(knitr)
+opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+```
+
+[Pitchfork](http://pitchfork.com) is the largest indie music site on the Internet (in the English-speaking world, at least), updating its pages daily with the latest indie music rumblings, interviews with budding artists, sneak previews of new albums and artist collaborations, and, most notably, a suite of music reviews by dedicated music critics forming Pitchfork's staff. I follow Pitchfork's album reviews religiously and I am not alone in feeling that their 'Best New Music' category routinely captures the best that modern music has to offer.
+
+Since its creation in 1999, Pitchfork has gained quite the following among music fanatics and its widely-read album reviews can have a [demonstrable impact on an album's success](http://the.honoluluadvertiser.com/article/2005/May/08/il/il22p.html). Indeed, Pitchfork is credited with propelling Arcade Fire into the limelight after bestowing a glowing 9.7 'Best New Music' review on their 2004 release _Funeral_. Conversely, they are responsible for striking a devastating blow to Travis Morrison's solo career after his 2004 release _Travistan_ received a controversial 0.0. This make-or-break phenomenon has appropriately been dubbed [The Pitchfork Effect](http://archive.wired.com/wired/archive/14.09/pitchfork.html?pg=3&topic=pitchfork&topic_set=).
+
+Simply put, an album's commercial fate can rest squarely in the hands of the Pitchfork staff member responsible for its review. But what goes into a review? Are staff members consistent in their reviewing behavior? Do biases exist? If so, what kinds? In the following post, I analyze Pitchfork's data in an attempt to answer these questions. After all, who reviews the reviewers[^1]?  
+
+## All the reviews that are fit to parse
+
+```{r set-up, echo=FALSE, message=FALSE, warning=FALSE}
+source("munge-data.R")
+library(ggplot2)
+library(RColorBrewer)  # color palette
+```
+
+To download Pitchfork's full catalogue of `r nrow(albums)` album reviews I wrote a `python` script that scrapes and parses Pitchfork's pages using `urllib2` and `BeautifulSoup`, respectively, and saves the data into a `SQLite` database via `sqlite3`. I then load these data into `R` and analyze them using a handful of packages including `dplyr`, `magrittr`, and `ggplot2`. For more details on the mechanics behind the data collection and analysis[^2], please visit my `pitchfork-reviews` [GitHub repository](https://github.com/nsgrantham/pitchfork-reviews).
+
+```{r remove-reissues}
+num.bnr <- nrow(albums %>% filter(accolade == "Best New Reissue"))
+albums <- albums %>% filter(accolade != "Best New Reissue")
+```
+
+These album reviews include both new releases as well as reissues. Reissues are typically multi-CD re-releases from already successful artists, often with extra artwork, remastered audio, remixes, or bonus tracks added to sweaten the deal. For example, see [David Bowie's recent 'Nothing Has Changed' Deluxe Edition](http://pitchfork.com/reviews/albums/20004-david-bowie-nothing-has-changed/) or the highly anticipated [remastered My Bloody Valentine album set](http://pitchfork.com/reviews/albums/16605-isnt-anything-reissue-loveless-reissue-eps-1988-1991/). In my analysis of album scores by reviewer, I am interested in initial album releases rather than reissued content from well-established artists. 
+
+I therefore attempt to remove reissues from my data set, but this is not straightforward because albums are not explicitly labeled as "new" or "reissued." I can, however, confidently remove the most successful reissues designated as 'Best New Reissue' by Pitchfork. Eliminating these `r num.bnr` reissues leaves a remaining `r nrow(albums)` reviews comprised of all initial album releases as well as, unfortunately, reissues not distinguished by 'Best New Reissue.' This is not ideal, and the following analyses ought to be given a certain degree of wiggle room as a result, but I imagine the effect of these lingering reissues is relatively negligible. It is my personal experience that a large proportion of Pitchfork reviews pertain to initial album releases over reissues.
+
+## A brief history of album scores
+
+Pitchfork published its first-ever album review on `r format(min(albums$published), format = "%B %d, %Y")`. `r round(with(albums, interval(min(published), max(published)) / eyears(1)), 1)` years later, Pitchfork boasts reviews of `r nrow(albums) + num.bnr` total albums from `r nrow(artists)` distinct artists and `r nrow(labels)` music labels. For the following analyses, we consider a smaller subset of these reviews (`r nrow(albums)`) after removing `r num.bnr` 'Best New Reissue' albums. 
+
+Reviews consist of a brief discussion of an album's musical content (e.g., does the album succeed in breaking new ground, where does it fall short, what are the must-listen-to tracks, etc.) and a numeric score assigned to the album ranging from 0.0 to 10.0 in incremements of 0.1. The higher the score, the higher the perceived quality of the album. Most often, an album's review is conducted by a single member of Pitchfork's staff.
+
+We can numerically summarize Pitchfork's history of album scores.
+
+```{r score-summary}
+(nums <- with(albums, summary(score)))
+```
+
+One quarter of all reviews earn scores that fall at or below 6.4 and half of all scores land in a narrow interval from 6.4 to 7.8. The remaining quarter albums are fortunate to earn 7.8 or above. On average, the mean score is `r nums[4]` and the median score is `r nums[3]`. A visual depiction paints a much richer picture of scoring history.
+
+```{r scores-histogram}
+ggplot(albums, aes(x = score)) + 
+  geom_histogram(binwidth = 0.1) +
+  scale_x_continuous("Score", breaks = seq(0, 10, by = 0.5)) + 
+  scale_y_continuous("Count", breaks = seq(0, 800, by = 100)) +
+  ggtitle(paste0("Pitchfork album scores\n", nrow(albums), " albums, ", min(albums$year), " - ", max(albums$year)))
+```
+
+```{r common-scores, echo=FALSE}
+score.frequency <- albums %>% group_by(score) %>% summarise(n = n()) %>% arrange(desc(n))
+```
+
+The five most common scores are `r score.frequency$score[1:5]`. There is a clear preference for whole number scores (5.0, 6.0, 7.0, 8.0) as well as half number scores (5.5, 6.5, 7.5). Among highly acclaimed albums, `r with(score.frequency, n[score == 10.0])` have received a perfect score of 10.0 and `r with(score.frequency, sum(n[score > 9.5 & score < 10.0]))` have come very close (9.6 to 9.9).
+
+### By month
+
+Do scores depend on the month in which they're reviewed?
+
+```{r scores-by-month}
+scores.by.month <- albums %>% group_by(month)
+
+ggplot(scores.by.month, aes(x = score, colour = month)) + 
+  geom_density(alpha = 0, position = "identity") +
+  scale_x_continuous(breaks = seq(0, 10, by = 0.5)) +
+  scale_colour_discrete("Month") +
+  labs(x = "Score", y = "Density", title = "Pitchfork album scores\nby month of review")
+```
+
+It doesn't seem so, there is no discernable difference in score distribution by month. 
+
+### By year
+
+Score distributions may also vary from year to year.
+
+```{r scores-by-year}
+scores.by.year <- albums %>% group_by(year)
+
+ggplot(scores.by.year, aes(x = score, colour = year)) + 
+  geom_density(alpha = 0, position = "identity") +
+  scale_x_continuous(breaks = seq(0, 10, by = 0.5)) +
+  scale_colour_discrete("Year") +
+  labs(x = "Score", y = "Density", title = "Pitchfork album scores\nby year of review")
+```
+
+It appears the yearly score distribution has grown over time to closely mimic the overall scoring pattern above. The mildly uncharacteristic score distributions in the earlier years are likely a result of two factors. First, without a historical index of album scores to consult, Pitchfork reviewers were tasked with determining their own scoring rubrics. Second, Pitchfork reviewed fewer albums during its formative years so a higher variability in scores is to be expected. 
+
+```{r reviews-by-year}
+reviews.by.year <- albums %>% group_by(year) %>% summarise(num.reviews = n())
+ggplot(reviews.by.year, aes(x = year, y = num.reviews, group = 1)) + 
+  geom_bar(stat = "identity", width = 0.75) + 
+  scale_y_continuous(breaks = seq(0, 1300, by = 100)) + 
+  labs(x = "Year", y = "Number of reviews", title = "Number of Pitchfork album reviews per year")
+```
+
+Indeed, it appears Pitchfork did not reach a visible "steady state" of about 1100 - 1200 reviews per year until around 2004/2005. Note the drop in total reviews from 2008 to 2009 is a direct result of our eliminating 'Best New Reissue' albums from the data set. While Pitchfork has been reviewing reissues for many years, the 'Best New Reissue' designation was not introduced until 2009.
+
+### By 'Best New Music'
+
+```{r}
+scores.with.bnm <- albums %>% 
+  filter(accolade == "Best New Music")
+
+first.bnm <- scores.with.bnm %>%
+  summarise(date = min(published))
+
+albums.since.bnm <- albums %>% 
+  filter(published >= first.bnm$date)
+```
+
+In addition to the numeric score attributed to every album, Pitchfork reviewers can distinguish exceptional new releases by labeling them as 'Best New Music' (BNM). Since the introduction of BNM in 2003, just [`r (num.bnm <- nrow(scores.with.bnm))` new releases of `r (num.since.bnm <- nrow(albums.since.bnm))` total albums](http://pitchfork.com/reviews/best/albums/) (`r round(100 * num.bnm/num.since.bnm, 2)`%) have been deemed worthy of the distinction. Despite its regular use and the clear honor associated with receiving it, the BNM accolade was not formally defined until 2012 when Pitchfork [responded to a reader's question]((http://pitchfork.com/features/inbox/8780-welcome-to-inbox/)) of "How does Pitchfork's 'Best New Music' system work?":
+
+> The truth of it is breathtakingly simple: Editors choose Best New Music albums based on the records that we think are the cream of the crop. These are excellent records that we feel transcend their scene and genre. When an album gets Best New Music, we think there's a very good chance that someone who doesn't generally follow this specific sphere of music will find a lot to enjoy in it.
+
+Calling this definition "breathtakingly simple" is a bit of a misnomer considering its high subjectivity. Regardless, what kind of scores can we expect from BNM albums?
+
+```{r bnm-scores-histogram}
+ggplot(scores.with.bnm, aes(x = score)) + 
+  geom_histogram(binwidth = 0.1) + 
+  scale_x_continuous(breaks = seq(0, 10, by = 0.5)) + 
+  labs(x = "Score", y = "Count", 
+       title = paste0("Pitchfork album scores labeled 'Best New Music'\n", nrow(scores.with.bnm), " albums, ", min(scores.with.bnm$year), " - ", max(scores.with.bnm$year)))
+```
+
+```{r common-bnm-scores, echo=FALSE}
+bnm.score.frequency <- scores.with.bnm %>% group_by(score) %>% summarise(n = n()) %>% arrange(desc(n))
+```
+
+BNM album scores average a mean score of `r mean(scores.with.bnm$score)`, median of `r median(scores.with.bnm$score)`, with standard deviation `r sd(scores.with.bnm$score)`. The five most common BNM scores are `r bnm.score.frequency$score[1:5]`. Only `r sum(with(bnm.score.frequency, n[score < 8.0]))` BNM albums have scored below 8.0.
+
+## The reviewer effect
+
+My primary interest in this analysis is the effect of reviewer on album score. Of course, without performing a controlled experiment I cannot safely conclude that "reviewer x has effect y" on the score of any given album. I am simply looking to characterize scoring patterns across a wide range of possible reviewers on the Pitchfork staff.
+
+There are `r nrow(reviewers)` total reviewers, a term I use loosely here because a very small handful of these reviews are collaborations among two or more reviewers. How many reviews have each of these reviewers contributed?
+
+```{r number-of-reviews}
+scores.by.reviewer <- albums %>%
+  group_by(reviewer) %>%
+  summarise(n = n())
+
+(nums <- summary(scores.by.reviewer$n))
+```
+
+Half of all reviewers have contributed `r nums[3]` or fewer reviews while the 25% most prolific reviewers have contributed `r nums[5]` or more reviews. There are `r nrow(scores.by.reviewer %>% filter(n >= 50))` reviewers with at least 50 reviews and `r nrow(scores.by.reviewer %>% filter(n >= 100))` reviewers with at least 100 reviews. Leading the pack is `r (top.dog <- with(scores.by.reviewer, reviewer[which.max(n)]))` with a whopping `r (most <- max(scores.by.reviewer$n))` reviews.  Go `r unlist(strsplit(top.dog, " "))[1]`!
+
+We must ensure our analysis is not adversely influenced by reviewers for which we have insufficient data. Thus, for the sake of the following analyses, we will restrict our attention to only those reviewers with 100 or more reviews. These `r nrow(restricted <- scores.by.reviewer %>% filter(n >= 100))` reviewers account for a staggering `r round(100 * sum(restricted$n)/nrow(albums), 2)`% of all reviews on Pitchfork.  
+
+How does score distribution vary from reviewer to reviewer?
+
+```{r scores-by-reviewer, warning=FALSE}
+# Let's look at score distribution by reviewer
+scores.by.reviewer <- albums %>%
+  select(reviewer, score) %>%
+  group_by(reviewer) %>%
+  filter(n() >= 100)  # restrict to reviewers with at least 100 reviews
+
+ggplot(scores.by.reviewer, aes(x = score, colour = reviewer)) + 
+  stat_density(alpha = 0, position = "identity") + guides(colour = FALSE) +
+  scale_x_continuous(breaks = seq(0, 10, by = 0.5)) +
+  labs(x = "Score", y = "Density", 
+       title = paste0("Pitchfork album scores by reviewer\n", length(unique(scores.by.reviewer$reviewer)), " reviewers with \u2265 100 reviews"))
+```
+
+Yikes! There is a surprising lack of continuity in score distribution from reviewer to reviewer. Some reviewers assign scores very frequently around 7.0, 7.5, or 8.0. Other reviewers are much more variable in their scores. We even identify a handful of bimodal distributions in the bunch, suggesting some reviewers have go-to scores to rate _good_ and _bad_ albums. 
+
+### By 8.0+
+
+Pitchfork defines high-scoring albums as those receiving scores of 8.0 or greater (8.0+) by their respective reviewer. [High-scoring albums get special attention](http://pitchfork.com/best/high-scoring-albums/), so a score of 8.0 is much more valuable than a 7.9. We therefore investigate differences in reviewer preference for assigning high scores. For each reviewer with at least 100 published reviews, we plot their proportion of 8.0+ album scores against their approximate number of album reviews published per year, a measure of their activity as a reviewer.
+
+```{r scores-over-eight}
+scores.over.eight <- albums %>%
+  group_by(reviewer) %>%
+  summarise(num.reviews = n(), 
+            num.over.eight = sum(score >= 8.0),
+            years.active = interval(min(published), max(published)) / eyears(1)) %>%
+  mutate(reviews.per.year = num.reviews / years.active,
+         proportion.over.eight = num.over.eight / num.reviews) %>%
+  filter(num.reviews >= 100)  # restrict to reviewers with >100 reviews
+
+ggplot(scores.over.eight, aes(x = reviews.per.year, y = proportion.over.eight, label = reviewer)) + 
+  geom_point() + geom_text(size = 2.5, vjust = -1.5) +
+  labs(x = "Reviews per year", y = "Proportion of albums scored 8.0+",
+       title = "Pitchfork reviewer preference for 8.0+ scores")
+```
+
+```{r percentage-function-over-eight, echo=FALSE}
+percentage_by_reviewer <- function(rev) {
+  round(100 * with(scores.over.eight, proportion.over.eight[reviewer == rev]), 1)
+}
+```
+
+Ian Cohen wins the award for most active reviewer with over 80 reviews per year on average, `r percentage_by_reviewer("Ian Cohen")`% of which regularly receive an 8.0+. After Cohen, the next most active reviewers are Stephen M. Deusner (with `r percentage_by_reviewer("Stephen M. Deusner")`% of his album reviews earning 8.0+), Sam Ubl (`r percentage_by_reviewer("Sam Ubl")`%), and Pitchfork's most prolific reviewer Joe Tangari (`r percentage_by_reviewer("Joe Tangari")`%).
+
+Some reviewers are very conservative with assigning high scores, such as Nick Neyland (`r percentage_by_reviewer("Nick Neyland")`%), Joshua Love (`r percentage_by_reviewer("Joshua Love")`), and Zach Kelly (`r percentage_by_reviewer("Zach Kelly")`%). Adam Moerder is notoriously difficult to please; a paltry `r percentage_by_reviewer("Adam Moerder")`% of albums he has reviewed have earned an 8.0+ despite his reviewing an average of `r round(with(scores.over.eight, reviews.per.year[reviewer == "Adam Moerder"]), 2)` albums per year.
+
+On the liberal end of the spectrum, Dominique Leone publishes `r round(with(scores.over.eight, reviews.per.year[reviewer == "Dominique Leone"]), 2)` reviews per year, a rate very close to Moerder's, but `r percentage_by_reviewer("Dominique Leone")`% of albums she reviews earn a prestigious 8.0+. Scott Plagenhoef is similarly liberal at `r percentage_by_reviewer("Scott Plagenhoef")`%, though he is not quite so active. Other liberal reviewers include Matt LeMay (`r percentage_by_reviewer("Matt LeMay")`%), Mark Richardson (`r percentage_by_reviewer("Mark Richardson")`%), and Brandon Stosuy (`r percentage_by_reviewer("Brandon Stosuy")`%).
+
+### By 'Best New Music'
+
+Now, high scores are great, but [BNM albums get _extra_ special attention](http://pitchfork.com/reviews/best/albums/), particularly from rabid music aficionados like myself. Only albums scored 8.0+ are considered for BNM by their reviewer (with very few exceptions). But how drastically do reviewers differ in awarding their 8.0+ albums a head-turning 'Best New Music' accolade? Because BNM was not introduced by Pitchfork until 2003, we restrict ourselves to the `r num.since.bnm` album reviews published in 2003 or later.
+
+```{r bnm-over-eight}
+scores.over.eight.and.bnm <- albums %>% 
+  filter(ymd(published) >= first.bnm$date) %>%
+  group_by(reviewer) %>%
+  summarise(num.reviews = n(), 
+            num.over.eight = sum(score >= 8.0),
+            num.bnm = sum(accolade == "Best New Music")) %>%
+  mutate(proportion.over.eight = num.over.eight / num.reviews, 
+         proportion.bnm.over.eight = num.bnm / num.over.eight) %>%
+  filter(num.reviews >= 100)
+
+ggplot(scores.over.eight.and.bnm, aes(x = proportion.over.eight, y = proportion.bnm.over.eight, label = reviewer)) + 
+  geom_point() + geom_text(size = 2.5, vjust = -1.5) +
+  labs(x = "Proportion of albums scored 8.0+", y = "Proportion of 8.0+ albums also labeled 'Best New Music'", title = "Pitchfork reviewer preference for 'Best New Music'")
+```
+
+```{r percentage-function-bnm, echo=FALSE}
+percentage_by_reviewer <- function(rev) {
+  round(100 * with(scores.over.eight.and.bnm, proportion.bnm.over.eight[reviewer == rev]), 1)
+}
+```
+
+Ian Cohen, Pitchfork's most active reviewer, awards BNM to a high `r percentage_by_reviewer("Ian Cohen")`% of his 8.0+ reviews. The other active reviewers are considerably less generous: Stephen M. Deusner (`r percentage_by_reviewer("Stephen M. Deusner")`%), Sam Ubl (`r percentage_by_reviewer("Sam Ubl")`%) and Joe Tangari at a miniscule `r percentage_by_reviewer("Joe Tangari")`%.
+
+Reviewers noted for commonly assigning high scores tend to be relatively moderate with further awarding BNM to their 8.0+ albums. This includes Mark Richardson (`r percentage_by_reviewer("Mark Richardson")`%), Brandon Stosuy (`r percentage_by_reviewer("Brandon Stosuy")`%), and Scott Plagenhoef (`r percentage_by_reviewer("Scott Plagenhoef")`%). A notable exception is Dominique Leone. Despite having the highest proportion of 8.0+ reviews, she awards BNM to a rather low `r percentage_by_reviewer("Dominique Leone")`% of these albums.
+
+By comparison, some reviewers can't seem to get enough BNM! Lindsay Zoladz awards BNM to a staggering `r percentage_by_reviewer("Lindsay Zoladz")`% of her 8.0+ scores. Ryan Dumbai has a slightly lower BNM percentage (`r percentage_by_reviewer("Ryan Dombal")`%) but he is also more likely to assign a high score to the albums he reviews. Also of note is Larry Fitzmaurice at `r percentage_by_reviewer("Larry Fitzmaurice")`%. 
+
+Conservative reviewers, those reluctant to assign high scores to their album reviews, range from drastically low to moderate in their use of BNM. Higher variability is to be expected here as the strict scoring habits of these reviewers allow very few albums to be eligible for BNM. That being said, Nick Neyland awards BNM to `r percentage_by_reviewer("Nick Neyland")`% of his 8.0+ album reviews, Zach Kelly (`r percentage_by_reviewer("Zach Kelly")`%) and Adam Moerder (`r percentage_by_reviewer("Adam Moerder")`%). In his history of `r nrow(albums %>% filter(reviewer == "Joshua Love"))` published album reviews, Joshua Love has never once labeled an album as BNM. Love is not alone; Joshua Klein and David Raposa have also never awarded BNM in their respective `r nrow(albums %>% filter(reviewer == "Joshua Klein"))` and `r nrow(albums %>% filter(reviewer == "David Raposa"))` published reviews.
+
+### By date published
+
+Perhaps the best way to visualize reviewer behavior is to plot a reviewer's scoring history over time. Each plot includes the following information:
+
+```{r scores-over-time}
+scores_over_time <- function(name) {
+  library(scales)
+  library(RColorBrewer)
+  pal <- brewer.pal(4, "Dark2")[-(1:2)]
+  df <- filter(albums, reviewer == name)
+  p <- ggplot(df, aes(x = published, y = score))
+  p <- p + geom_line(size = 0.3, alpha = 0.7)
+  p <- p + geom_point(data = filter(df, score >= 8.0), aes(colour = factor(accolade)), size = 2, alpha = 1)
+  p <- p + theme(legend.justification = c(1, 0), legend.position = c(1, 0))
+  if (min(df$published) < first.bnm$date & first.bnm$date < max(df$published)) {
+    p <- p + geom_vline(aes(xintercept = as.numeric(first.bnm$date)), 
+                        linetype = "dashed", colour = pal[2])
+  }
+  #if (min(df$published) < first.bnr$date & first.bnr$date < max(df$published)) {
+  #  p <- p + geom_vline(aes(xintercept = as.numeric(first.bnr$date)), 
+  #                      linetype = "dashed", colour = pal[3])
+  #}
+  p <- p + scale_colour_manual("Accolade", values = pal, labels = c("8.0+", "BNM"))
+  p <- p + geom_smooth(method = "loess", formula = y ~ x, se = FALSE)
+  p <- p + ggtitle(name)
+  p <- p + scale_x_datetime("Date published", 
+                            breaks = date_breaks("1 years"),
+                            labels = date_format("%Y"))
+  p <- p + scale_y_continuous("Score", breaks = 0:10, limits = c(0, 10))
+  print(p)
+}
+```
+
+#### Scores over time
+
+A line graph in grey illustrates a reviewer's scoring history from their first published Pitchfork album review to their most recent. We see a high variability in scores assigned by Pitchfork's most active reviewers, owing presumably to the high frequency of albums that hit their desk for review.
+
+```{r active}
+scores_over_time("Ian Cohen")
+scores_over_time("Joe Tangari")
+scores_over_time("Stephen M. Deusner")
+```
+
+This stands in stark contrast to reviewers like Nick Neyland, Zach Kelly, and Marc Masters who, while less active, show very low variance in the scores they assign.
+
+```{r low-variance}
+scores_over_time("Nick Neyland")
+scores_over_time("Zach Kelly")
+scores_over_time("Marc Masters")
+```
+
+#### Average score over time
+
+A [LOESS smoother](http://en.wikipedia.org/wiki/Local_regression) in blue approximates a reviewer's average score over time. Most reviewers consistently average around 7.0 or 6.5. Reviewers identified as liberal with high scores show averages that hover closer to 8.0.
+
+```{r high-mean}
+scores_over_time("Scott Plagenhoef")
+scores_over_time("Dominique Leone")
+```
+
+Conservative reviewers, including Ian Cohen above, attain averages as low as 6.0
+
+```{r low-mean}
+scores_over_time("Adam Moerder")
+scores_over_time("Joshua Love")
+scores_over_time("David Raposa")
+```
+
+#### 8.0+ and 'Best New Music'
+
+Colored points identify album reviews earning 8.0+ (purple) and BNM (pink), an accolade that did not exist prior to 2003. A vertical dotted line (pink) in some plots marks BNM's first recorded use on `r format(first.bnm$date, format = "%B %d, %Y")`.  Some reviewers exhibit a strong tendency to assign high scores to the albums they review.
+
+```{r high-scores}
+scores_over_time("Mark Richardson")
+scores_over_time("Brandon Stosuy")
+```
+
+Meanwhile, other reviewers are slightly more reluctant to assign high scores, but when they do they often further distinguish the album as BNM.
+
+```{r many-bnm}
+scores_over_time("Ryan Dombal")
+scores_over_time("Lindsay Zoladz")
+scores_over_time("Larry Fitzmaurice")
+```
+
+## Discussion
+
+I do not pretend to know how Pitchfork reviewers come to be responsible for reviewing particular albums. Are they randomly assigned? I highly doubt it, this seems way too inefficient as you will end up assigning, say, a death metal album to a reviewer who is better versed in the nuances of lo-fi folk music. Perhaps reviewers choose for themselves which albums to review? While more plausible, this system is not without its flaws. For example, who bears the responsibility for albums nobody has selected for review? Maybe it's simply a mish-mash of anything and everything. Sometimes the reviewer selects a specific album to review. Other times they are asked to review something wildly off their radar. 
+
+Whatever the process, it seems likely that every staff member at Pitchfork sees albums from all walks of the music world: groundbreaking new music, atrocious flops, and all shades inbetween. However, despite relative uniformity in aggregate album quality from reviewer to reviewer, the members of the Pitchfork staff differ drastically in their reviewing behaviors. Where some reviewers assign high and low scores with impunity, others seldom venture beyond a comfortable 6.0 - 8.0 range. Certain reviewers have reviewed hundreds of albums without once acknowledging a single album as 'Best New Music,' while others appear to assign high scores and BNM like they're going out of style.
+
+In the absence of a well-defined scoring system, Pitchfork reviewers have developed their own personal rubrics for judging new music. Now, this might be innocuous if not for phenomena like the Pitchfork Effect. An album that reaches Mark Richardson's desk, say, likely has a much better shot at high praise than if that same album hit Adam Moerder's desk. With fame and fortune hanging in the balance, Pitchfork's willful neglect of acknowledging reviewer variability seems irresponsible at best. 
+
+A solution to this may be to allow multiple reviews per album. That is, why not allow _three_ members to review an album and assign it the average of their scores? This is not the cheapest option for Pitchfork, surely, but an average of three scores is resistant to the whims of an individual biased reviewer and ought to better capture the musical novelty of a newly released album. For a website that thrives on controversy, however, I would not hold my breath.
+
+What do you think?
+
+[^1]: A tongue-in-cheek nod to the lack of oversight of those in positions of power: "who watches the watchmen?" I don't pretend to equate well-intentioned indie music reviewers to tyrannical governments and police states, mind you. :)
+
+[^2]: I am not the first person to attempt an analysis of Pitchfork album reviews. In recent years, Johnny Stoddard identified [the top-rated artists and albums of 2000 - 2010](http://blog.import.io/post/analysing-music-data-from-pitchfork), Alex Pounds attempts (but doesn't complete) an investigation of the [relationship between an artist's Pitchfork popularity and their number of listeners](http://ethicsgirls.com/pitchforkeffect/), and Jim Duke summarized [album scores overall, over time, and, very briefly, by reviewer](http://jmduke.com/posts/analysing-pitchfork-using-pandas/) using data obtained by Christopher Marriott's [Pitchfork web scraper](https://classic.scraperwiki.com/scrapers/pitchfork_review_data/). 
