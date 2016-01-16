@@ -28,7 +28,7 @@ Table|Variable|Description
 
 ## Loading the data into `R`
 
-The `RSQLite` and `DBI` packages allow `R` to interact with `pitchfork-reviews.db` using SQLite syntax. As these data are not prohibitively large, the easiest option is to load the database into `R` in its entirety. This is accomplished by `load-database.R`. These data are current as of January 14, 2015.
+The `RSQLite` and `DBI` packages allow `R` to interact with `pitchfork-reviews.db` using SQLite syntax. As these data are not prohibitively large, the easiest option is to load the database into `R` in its entirety. This is accomplished by `load-database.R`. **These data are current as of January 16, 2016.**
 
 ## Munging the data
 Following execution of `load-database.R`, the `munge-data.R` file [munges](http://en.wikipedia.org/wiki/Data_wrangling) the raw data into a more usable form, including reviewer name corrections and helpful date information via `lubridate`.

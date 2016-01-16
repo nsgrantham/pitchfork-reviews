@@ -8,16 +8,12 @@ library(DBI)
 con <- dbConnect(RSQLite::SQLite(), "pitchfork-reviews.db")
 
 # Create R Dataframes from SQL Tables
-fetch_and_store_results <- function(tab, env) {
-  query <- paste("SELECT * FROM", tab)
-  results <- dbSendQuery(con, query)
-  assign(tab, dbFetch(results), envir = env)
-  dbClearResult(results)
-}
 tables <- dbListTables(con)
-sapply(tables, fetch_and_store_results, env = environment())
+for (tab in tables) {
+  assign(tab, dbReadTable(con, tab), env = environment())
+}
 
 # Disconnect from the database
 dbDisconnect(con)
-rm(list = c("con", "tables", "fetch_and_store_results"))
+rm(list = c("con", "tables", "tab"))
 

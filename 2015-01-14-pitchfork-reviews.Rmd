@@ -1,13 +1,15 @@
 ---
-title: "Who Reviews the Reviewers?"
+title: "Who Reviews the Pitchfork Reviewers?"
+identifier: pitchfork-reviews
 author: "Neal S. Grantham"
 date: "January 14, 2015"
-output: html_document
+comments: true
 ---
 
 ```{r global-options, include=FALSE}
 library(knitr)
-opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, 
+               fig.width=10, fig.height=6, dpi=200)
 ```
 
 [Pitchfork](http://pitchfork.com) is the largest indie music site on the Internet (in the English-speaking world, at least), updating its pages daily with the latest indie music rumblings, interviews with budding artists, sneak previews of new albums and artist collaborations, and, most notably, a suite of music reviews by dedicated music critics forming Pitchfork's staff. I follow Pitchfork's album reviews religiously and I am not alone in feeling that their 'Best New Music' category routinely captures the best that modern music has to offer.
@@ -71,7 +73,7 @@ Do scores depend on the month in which they're reviewed?
 scores.by.month <- albums %>% group_by(month)
 
 ggplot(scores.by.month, aes(x = score, colour = month)) + 
-  geom_density(alpha = 0, position = "identity") +
+  geom_density(position = "identity") +
   scale_x_continuous(breaks = seq(0, 10, by = 0.5)) +
   scale_colour_discrete("Month") +
   labs(x = "Score", y = "Density", title = "Pitchfork album scores\nby month of review")
@@ -87,7 +89,7 @@ Score distributions may also vary from year to year.
 scores.by.year <- albums %>% group_by(year)
 
 ggplot(scores.by.year, aes(x = score, colour = year)) + 
-  geom_density(alpha = 0, position = "identity") +
+  geom_density(position = "identity") +
   scale_x_continuous(breaks = seq(0, 10, by = 0.5)) +
   scale_colour_discrete("Year") +
   labs(x = "Score", y = "Density", title = "Pitchfork album scores\nby year of review")
@@ -166,7 +168,7 @@ scores.by.reviewer <- albums %>%
   filter(n() >= 100)  # restrict to reviewers with at least 100 reviews
 
 ggplot(scores.by.reviewer, aes(x = score, colour = reviewer)) + 
-  stat_density(alpha = 0, position = "identity") + guides(colour = FALSE) +
+  geom_density(position = "identity") + guides(colour = FALSE) +
   scale_x_continuous(breaks = seq(0, 10, by = 0.5)) +
   labs(x = "Score", y = "Density", 
        title = paste0("Pitchfork album scores by reviewer\n", length(unique(scores.by.reviewer$reviewer)), " reviewers with \u2265 100 reviews"))

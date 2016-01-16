@@ -124,7 +124,7 @@ def parse_album(sql, album_href, album_id):
 		if artist == 'Various Artists':  # direct all 'Various Artists' to same artist page and artist id
 			artist_href = '/artists/31016-various-artists/'
 		else:
-			artist_href = info.h1.a.get('href') 
+			artist_href = info.h1.a.get('href')
 		artist_id = artist_href[9: ].split('-')[0]
 		album = info.h2.get_text()
 		info_h3 = info.h3.get_text().strip()
@@ -142,7 +142,7 @@ def parse_album(sql, album_href, album_id):
 			accolade = info.find('div', class_ = 'bnm-label').get_text().strip()  # may simply be blank
 		published = info.h4.find('span', class_ = 'pub-date').get_text()
 		published = datetime.datetime.strptime(published, '%B %d, %Y').strftime('%Y-%m-%d')
-		data = [album, album_id, BASE_URL + album_href, artist, artist_id, BASE_URL + artist_href, 
+		data = [album, album_id, BASE_URL + album_href, artist, artist_id, BASE_URL + artist_href,
 				label, released, reviewer, BASE_URL + reviewer_href, score, accolade, published]
 		print ' Parsing %s' % (BASE_URL + album_href)
 		insert(sql, data)  # place in db
@@ -156,9 +156,9 @@ def parse_album(sql, album_href, album_id):
 
 def insert(sql, data):
 	"""Inserts the given data into the database."""
-	# data is [album, album_id, album_url, artist, artist_id, artist_url, label, 
+	# data is [album, album_id, album_url, artist, artist_id, artist_url, label,
 	#          released, reviewer, reviewer_url, score, accolade, published]
-	sql.execute("INSERT OR IGNORE INTO albums VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);", 
+	sql.execute("INSERT OR IGNORE INTO albums VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
 		(data[1], data[0], data[3], data[6], data[7], data[8], data[10], data[11], data[12], data[2], ))
 	sql.execute("INSERT OR IGNORE INTO labels (label) VALUES (?);", (data[6], ))
 	sql.execute("INSERT OR IGNORE INTO reviewers (reviewer, url) VALUES (?, ?);", (data[8], data[9], ))
