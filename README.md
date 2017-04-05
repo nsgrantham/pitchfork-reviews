@@ -9,21 +9,21 @@ It is necessary to scrape Pitchfork's webpages and parse the relevant informatio
 Table|Variable|Description
 -----|--------|-----------
 `albums`|`id`|Unique album identifier assigned by Pitchfork. e.g., Mac DeMarco's Salad Days album is uniquely identified by 19170 as visible in its album review url `http://pitchfork.com/reviews/albums/19170-mac-demarco-salad-days/`
- |`album`|Name of the album.
- |`artist`|Name of the album's artist.
- |`label`|Name of the label that produced the album.
- |`released`|Year the album was released. (May be missing)
- |`reviewer`|Name(s) of the album's Pitchfork reviewer(s)
- |`score`|Score given to the album: 0.0 to 10.0 in increments of 0.1
- |`accolade`|"Best New Music" or "Best New Reissue"
- |`published`|Date the review was published. YYYY-MM-DD
- |`url`|Pitchfork URL of the album review.
+| |`album`|Name of the album.
+| |`artist`|Name of the album's artist.
+| |`label`|Name of the label that produced the album.
+| |`released`|Year the album was released. (May be missing)
+| |`reviewer`|Name(s) of the album's Pitchfork reviewer(s)
+| |`score`|Score given to the album: 0.0 to 10.0 in increments of 0.1
+| |`accolade`|"Best New Music" or "Best New Reissue"
+| |`published`|Date the review was published. YYYY-MM-DD
+| |`url`|Pitchfork URL of the album review.
 `artists`|`id`|Unique artist identifier assigned by Pitchfork. e.g., Warpaint is uniquely identified by 28034 as visible in their artist url `http://pitchfork.com/artists/28034-warpaint/`
- |`artist`|Name of the artist.
- |`url`|Pitchfork URL of the artist.
+| |`artist`|Name of the artist.
+| |`url`|Pitchfork URL of the artist.
 `reviewers`|`id`|Unique reviewer identifier, auto-assigned as new reviewers enter the database.
- |`reviewer`|Name(s) of reviewer(s).
- |`url`|Pitchfork URL of the reviewer. If none, URL is simply `http://pitchfork.com/staff/`
+| |`reviewer`|Name(s) of reviewer(s).
+| |`url`|Pitchfork URL of the reviewer. If none, URL is simply `http://pitchfork.com/staff/`
 
 
 ## Loading the data into `R`
